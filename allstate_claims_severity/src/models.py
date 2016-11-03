@@ -1,4 +1,5 @@
 import numpy as np
+import os.path as path
 import pandas as pd
 from sklearn.cross_validation import train_test_split
 from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor, GradientBoostingRegressor
@@ -23,7 +24,6 @@ def split(df_path, test_size=0.1, seed=0):
 
     X = df.iloc[:,:-1]
     Y = df.iloc[:,-1]
-
     return train_test_split(X, Y, test_size=test_size,
                             random_state=seed)
 
