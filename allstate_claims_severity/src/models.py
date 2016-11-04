@@ -71,9 +71,7 @@ etr = {
     "random_state": seed,
 }
 
-xgbr = {
-    "silent": False,
-}
+xgbr = {}
 
 gbr = {
     "loss": "ls",
