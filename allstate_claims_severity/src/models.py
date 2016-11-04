@@ -1,11 +1,23 @@
 import numpy as np
 import pandas as pd
 from sklearn.cross_validation import train_test_split
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor, GradientBoostingRegressor
+import traceback
+from xgboost import XGBRegressor
+
+
+def merge_dicts(x, y):
+    '''Given two dicts, merge them into a new dict as a shallow copy.'''
+    z = x.copy()
+    z.update(y)
+    return z
 
 
 def split(df_path, test_size=0.1, seed=0):
-    df = pd.read_csv(df_path)
+    n_cat = 1175
+    dtypes = dict(zip(range(n_cat), ["uint8"] * n_cat) +
+                  zip(range(n_cat, n_cat+15), ["float64"] * 15))
+    df = pd.read_csv(df_path, dtype=dtypes)
     print("Initial DataFrame info:")
     df.info()
 
@@ -23,17 +35,59 @@ def mae(Y_out, Y_val):
 
 def try_models(regressors, tt_split):
     X_train, X_val, Y_train, Y_val = tt_split
-    print("X_train info:")
-    X_train.info()
     del tt_split
+    out = []
     for r, kwargs in regressors:
         reg = r(**kwargs)
-        reg.fit(X_train, Y_train)
-        Y_out = reg.predict(X_val)
-        print(mae(Y_out, Y_val))
+        try:
+            if r is XGBRegressor:
+                reg.fit(X_train, Y_train, eval_metric="mae", verbose=True)
+            else:
+                reg.fit(X_train, Y_train)
+            Y_out = reg.predict(X_val)
+            mae_val = mae(np.expm1(Y_out), np.expm1(Y_val))
+            del Y_out
+            output = (reg.__class__.__name__, kwargs, mae_val)
+            print(output)
+            out.append(output)
+            del reg
+        except MemoryError:
+            print("MemoryError with %s, %s." % (reg.__class__.__name__, kwargs))
+            traceback.print_exc()
 
+    return out
 
-regressors = [(GradientBoostingRegressor, {"loss": "ls", "learning_rate": 0.1, "n_estimators": 50, "max_depth": 3})]
+seed = 0
 
-try_models(regressors, split("../encoded.csv"))
+rfr = {
+    "n_jobs" : -1,
+    "verbose": 3,
+    "random_state": seed,
+}
 
+etr = {
+    "n_jobs": -1,
+    "verbose": 3,
+    "random_state": seed,
+}
+
+xgbr = {
+    "silent": False,
+}
+
+gbr = {
+    "loss": "ls",
+    "learning_rate": 0.1,
+    "max_depth": 3,
+    "verbose": 3,
+    "random_state": seed,
+}
+
+regressors = [
+    (XGBRegressor, merge_dicts(xgbr, { "n_estimators": 1000 })),
+    (GradientBoostingRegressor, merge_dicts(gbr, { "n_estimators": 100, })),
+]
+
+if __name__ == "__main__":
+    output = try_models(regressors, split("../encoded.csv"))
+    print(output)
