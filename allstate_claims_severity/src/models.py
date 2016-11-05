@@ -1,7 +1,7 @@
 import numpy as np
 import os.path as path
 import pandas as pd
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor, GradientBoostingRegressor
 import traceback
 from xgboost import XGBRegressor
@@ -26,6 +26,19 @@ def split(df_path, test_size=0.1, seed=0):
     Y = df.iloc[:,-1]
     return train_test_split(X, Y, test_size=test_size,
                             random_state=seed)
+
+
+def kfold_split(df_path, k=10, seed=0):
+    n_cat = 1175
+    dtypes = dict(zip(range(n_cat), ["uint8"] * n_cat) +
+                  zip(range(n_cat, n_cat+15), ["float64"] * 15))
+    df = pd.read_csv(df_path, dtype=dtypes)
+    print("Initial DataFrame info:")
+    df.info()
+
+    X = df.iloc[:,:-1]
+    Y = df.iloc[:,-1]
+    return KFold(n_splits=k)
 
 
 def mae(Y_out, Y_val):
@@ -57,7 +70,7 @@ def try_models(regressors, tt_split):
 
     return out
 
-seed = 0
+seed = 2016
 
 rfr = {
     "n_jobs" : -1,
@@ -71,7 +84,11 @@ etr = {
     "random_state": seed,
 }
 
-xgbr = {}
+xgbr = {
+    "max_depth": 6,
+    "alpha": 1,
+    "gamma": 1
+}
 
 gbr = {
     "loss": "ls",
@@ -82,10 +99,10 @@ gbr = {
 }
 
 regressors = [
-    (XGBRegressor, merge_dicts(xgbr, { "n_estimators": 1000 })),
-    (GradientBoostingRegressor, merge_dicts(gbr, { "n_estimators": 100, })),
+    (XGBRegressor, merge_dicts(xgbr, { "n_estimators": 100 })),
+    # (GradientBoostingRegressor, merge_dicts(gbr, { "n_estimators": 100, })),
 ]
 
 if __name__ == "__main__":
-    output = try_models(regressors, split("../encoded.csv"))
+    output = try_models(regressors, split("../encoded.csv"), seed=seed)
     print(output)
