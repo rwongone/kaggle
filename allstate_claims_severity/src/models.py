@@ -1,8 +1,9 @@
 import numpy as np
 import os.path as path
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor, GradientBoostingRegressor
+from scipy.stats import boxcox, skew
+from sklearn.metrics import mean_absolute_error as mae
+from sklearn.model_selection import KFold
 import traceback
 from xgboost import XGBRegressor
 
@@ -14,95 +15,95 @@ def merge_dicts(x, y):
     return z
 
 
-def split(df_path, test_size=0.1, seed=0):
-    n_cat = 1175
+def split(df_path, k=10):
+    n_cat = 1176
+    n_cont = 14
     dtypes = dict(zip(range(n_cat), ["uint8"] * n_cat) +
-                  zip(range(n_cat, n_cat+15), ["float64"] * 15))
+                  zip(range(n_cat, n_cat+n_cont), ["float64"] * n_cont))
     df = pd.read_csv(df_path, dtype=dtypes)
     print("Initial DataFrame info:")
     df.info()
 
     X = df.iloc[:,:-1]
     Y = df.iloc[:,-1]
-    return train_test_split(X, Y, test_size=test_size,
-                            random_state=seed)
+
+    return X, Y, KFold(n_splits=k).split(X)
 
 
-def kfold_split(df_path, k=10, seed=0):
-    n_cat = 1175
-    dtypes = dict(zip(range(n_cat), ["uint8"] * n_cat) +
-                  zip(range(n_cat, n_cat+15), ["float64"] * 15))
-    df = pd.read_csv(df_path, dtype=dtypes)
-    print("Initial DataFrame info:")
-    df.info()
+def build_ensemble(regressor, kfold):
+    X, Y, kf = kfold
+    r, kwargs = regressor
 
-    X = df.iloc[:,:-1]
-    Y = df.iloc[:,-1]
-    return KFold(n_splits=k)
-
-
-def mae(Y_out, Y_val):
-    assert len(Y_out) == len(Y_val)
-    return np.sum(np.abs(Y_out - Y_val)) / len(Y_out)
-
-
-def try_models(regressors, tt_split):
-    X_train, X_val, Y_train, Y_val = tt_split
-    del tt_split
-    out = []
-    for r, kwargs in regressors:
+    ensemble = []
+    for i, (train, test) in enumerate(kf):
         reg = r(**kwargs)
+        X_train, X_val = X.ix[train], X.ix[test]
+        Y_train, Y_val = Y[train], Y[test]
+
         try:
-            if r is XGBRegressor:
-                reg.fit(X_train, Y_train, eval_metric="mae", verbose=True)
-            else:
-                reg.fit(X_train, Y_train)
+            reg.fit(X_train, Y_train, eval_metric="mae", verbose=True);
+            ensemble.append(reg)
             Y_out = reg.predict(X_val)
+
             mae_val = mae(np.expm1(Y_out), np.expm1(Y_val))
-            del Y_out
-            output = (reg.__class__.__name__, kwargs, mae_val)
-            print(output)
-            out.append(output)
-            del reg
+            print("Fold %d mae = %.6f" % (i, mae_val))
         except MemoryError:
             print("MemoryError with %s, %s." % (reg.__class__.__name__, kwargs))
             traceback.print_exc()
+        except Exception:
+            print("General error.")
+            traceback.print_exc()
 
-    return out
+    return ensemble
 
-seed = 2016
 
-rfr = {
-    "n_jobs" : -1,
-    "verbose": 3,
-    "random_state": seed,
-}
+def read_test(test_path):
+    n_cat = 1176
+    n_cont = 14
 
-etr = {
-    "n_jobs": -1,
-    "verbose": 3,
-    "random_state": seed,
-}
+    dtypes = dict([(0, "uint32")] + zip(range(1, n_cat+1), ["uint8"] * n_cat) +
+                  zip(range(n_cat+1, n_cat+n_cont+1), ["float64"] * n_cont))
+    df = pd.read_csv(test_path, dtype=dtypes)
+
+    print("Test DataFrame info:")
+    df.info()
+
+    id_col = df.iloc[:,0]
+    X = df.iloc[:,1:]
+    del df
+
+    return id_col, X
+
+
+def predict(ensemble, id_col, X, k=5):
+    prediction = None
+    for i, reg in enumerate(ensemble):
+        y_pred = reg.predict(X)
+        inc_prediction = np.expm1(y_pred / k)
+        if i > 0:
+            prediction = prediction + inc_prediction
+        else:
+            prediction = inc_prediction
+
+    sub_array = np.concatenate(id_col, prediction, axis=1)
+    df = pd.DataFrame(sub_array, columns=["id", "loss"])
+    df.to_csv("../submission.csv")
+    return df
+
 
 xgbr = {
-    "max_depth": 6,
-    "alpha": 1,
-    "gamma": 1
-}
-
-gbr = {
-    "loss": "ls",
-    "learning_rate": 0.1,
     "max_depth": 3,
-    "verbose": 3,
-    "random_state": seed,
+    "reg_alpha": 0.1,
+    "gamma": 1,
+    "n_estimators": 100,
+    "seed": 2016,
 }
-
-regressors = [
-    (XGBRegressor, merge_dicts(xgbr, { "n_estimators": 100 })),
-    # (GradientBoostingRegressor, merge_dicts(gbr, { "n_estimators": 100, })),
-]
 
 if __name__ == "__main__":
-    output = try_models(regressors, split("../encoded.csv"), seed=seed)
-    print(output)
+    k = 5
+    xgb = (XGBRegressor, xgbr)
+    print("Building ensemble.")
+    output = build_ensemble(xgb, split("../encoded.csv", k=k))
+    print("Predicting.")
+    prediction = predict(ensemble, *(read_test("../encoded_test.csv")), k=k)
+    print("Done.")
