@@ -35,6 +35,7 @@ def build_ensemble(regressor, kfold):
     r, kwargs = regressor
 
     ensemble = []
+    cv_prediction = None
     for i, (train, test) in enumerate(kf):
         reg = r(**kwargs)
         X_train, X_val = X.ix[train], X.ix[test]
@@ -45,6 +46,11 @@ def build_ensemble(regressor, kfold):
             ensemble.append(reg)
             Y_out = reg.predict(X_val)
 
+            if cv_prediction:
+                cv_prediction = cv_prediction + np.expm1(Y_out) / len(kf)
+            else:
+                cv_prediction = np.expm1(Y_out) / len(kf)
+
             mae_val = mae(np.expm1(Y_out), np.expm1(Y_val))
             print("Fold %d mae = %.6f" % (i, mae_val))
         except MemoryError:
@@ -53,6 +59,8 @@ def build_ensemble(regressor, kfold):
         except Exception:
             print("General error.")
             traceback.print_exc()
+
+        print("Ensemble mae = %.6f" % mae(cv_prediction, np.expm1(Y_val)))
 
     return ensemble
 
@@ -68,8 +76,13 @@ def read_test(test_path):
     print("Test DataFrame info:")
     df.info()
 
-    id_col = df.iloc[:,0]
+    id_col = pd.DataFrame(df.iloc[:,0])
     X = df.iloc[:,1:]
+
+
+    X.rename(columns=dict(zip([str(i) for i in xrange(1, 1191)],
+                              [str(i) for i in xrange(0, 1190)])),
+             inplace=True)
     del df
 
     return id_col, X
@@ -79,20 +92,20 @@ def predict(ensemble, id_col, X, k=5):
     prediction = None
     for i, reg in enumerate(ensemble):
         y_pred = reg.predict(X)
-        inc_prediction = np.expm1(y_pred / k)
+        inc_prediction = pd.DataFrame(np.expm1(y_pred / k), columns=["loss"])
         if i > 0:
             prediction = prediction + inc_prediction
         else:
             prediction = inc_prediction
 
-    sub_array = np.concatenate(id_col, prediction, axis=1)
-    df = pd.DataFrame(sub_array, columns=["id", "loss"])
-    df.to_csv("../submission.csv")
+    id_col = id_col.rename(columns={"0": "id"})
+    df = pd.concat((id_col, prediction), axis=1)
+    df.to_csv("../submission.csv", index=False)
     return df
 
 
 xgbr = {
-    "max_depth": 3,
+    "max_depth": 6,
     "reg_alpha": 0.1,
     "gamma": 1,
     "n_estimators": 100,
@@ -103,7 +116,7 @@ if __name__ == "__main__":
     k = 5
     xgb = (XGBRegressor, xgbr)
     print("Building ensemble.")
-    output = build_ensemble(xgb, split("../encoded.csv", k=k))
+    ensemble = build_ensemble(xgb, split("../encoded.csv", k=k))
     print("Predicting.")
     prediction = predict(ensemble, *(read_test("../encoded_test.csv")), k=k)
     print("Done.")

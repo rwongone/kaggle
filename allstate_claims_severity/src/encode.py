@@ -11,8 +11,6 @@ def encode(csv_path, n_cat, n_cont):
     cont_df = orig_df.iloc[:, n_cat+1:-1]
     target = pd.DataFrame(orig_df.iloc[:, -1])
 
-    cont_df.drop("cont12", axis=1, inplace=True)
-
     del test_df
 
     categories = []
@@ -45,8 +43,6 @@ def encode_test(csv_path, n_cat, n_cont):
     cat_test_df = test_df.iloc[:, 1:n_cat+1]
     cat_df = orig_df.iloc[:, 1:n_cat+1]
     cont_test_df = test_df.iloc[:, n_cat+1:]
-
-    del test_df
 
     categories = []
     for i in xrange(n_cat):
