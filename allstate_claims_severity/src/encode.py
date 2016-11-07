@@ -5,7 +5,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 def encode(csv_path, n_cat, n_cont):
     orig_df = pd.read_csv(csv_path)
-    test_df = pd.read_csv("../test.csv")
+    test_df = pd.read_csv("../input/test.csv")
     cat_df = orig_df.iloc[:, 1:n_cat+1]
     cat_test_df = test_df.iloc[:, 1:n_cat+1]
     cont_df = orig_df.iloc[:, n_cat+1:-1]
@@ -33,12 +33,12 @@ def encode(csv_path, n_cat, n_cont):
     target = np.log1p(target)
     encoded_df = np.concatenate((encoded_cats, cont_df.values,
                                  target.values), axis=1)
-    pd.DataFrame(encoded_df).to_csv("../encoded.csv", index=False)
+    pd.DataFrame(encoded_df).to_csv("../input/encoded.csv", index=False)
 
 
 def encode_test(csv_path, n_cat, n_cont):
     test_df = pd.read_csv(csv_path)
-    orig_df  = pd.read_csv("../train.csv")
+    orig_df  = pd.read_csv("../input/train.csv")
     id_df = pd.DataFrame(test_df.iloc[:,0])
     cat_test_df = test_df.iloc[:, 1:n_cat+1]
     cat_df = orig_df.iloc[:, 1:n_cat+1]
@@ -62,9 +62,9 @@ def encode_test(csv_path, n_cat, n_cont):
     del categories
 
     encoded_df = np.concatenate((id_df.values, encoded_cats, cont_test_df.values), axis=1)
-    pd.DataFrame(encoded_df).to_csv("../encoded_test.csv", index=False)
+    pd.DataFrame(encoded_df).to_csv("../input/encoded_test.csv", index=False)
 
 
-encode("../train.csv", n_cat=116, n_cont=14)
-encode_test("../test.csv", n_cat=116, n_cont=14)
+encode("../input/train.csv", n_cat=116, n_cont=14)
+encode_test("../input/test.csv", n_cat=116, n_cont=14)
 print("encode.py finished")

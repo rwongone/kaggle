@@ -118,7 +118,7 @@ def predict(ensemble, id_col, X, k=5):
     id_col = id_col.rename(columns={"0": "id"})
     df = pd.concat((id_col, prediction), axis=1)
     df["loss"] = f_inv(df["loss"], logshift)
-    df.to_csv("../submission.csv", index=False)
+    df.to_csv("../output/submission.csv", index=False)
     return df
 
 
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     k = 5
     xgb = (XGBRegressor, xgbr)
     print("Building ensemble.")
-    ensemble = build_ensemble(xgb, split("../encoded.csv", k=k))
+    ensemble = build_ensemble(xgb, split("../input/encoded.csv", k=k))
     print("Predicting.")
-    prediction = predict(ensemble, *(read_test("../encoded_test.csv")), k=k)
+    prediction = predict(ensemble, *(read_test("../input/encoded_test.csv")), k=k)
     print("Done.")
