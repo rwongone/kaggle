@@ -8,6 +8,15 @@ import traceback
 from xgboost import XGBRegressor
 
 
+logshift = 200
+def f(loss, shift=200):
+    return np.log(loss + shift)
+
+
+def f_inv(logloss, shift=200):
+    return np.exp(logloss) - shift
+
+
 def merge_dicts(x, y):
     '''Given two dicts, merge them into a new dict as a shallow copy.'''
     z = x.copy()
@@ -25,7 +34,7 @@ def split(df_path, k=10):
     df.info()
 
     X = df.iloc[:,:-1]
-    Y = df.iloc[:,-1]
+    Y = f(df.iloc[:,-1], logshift)
 
     return X, Y, KFold(n_splits=k)
 
@@ -44,7 +53,7 @@ def build_ensemble(regressor, kfold):
             reg.fit(X_train, Y_train, eval_metric="mae", verbose=True);
             ensemble.append(reg)
             Y_out = reg.predict(X_val)
-            mae_val = mae(np.expm1(Y_out), np.expm1(Y_val))
+            mae_val = mae(f_inv(Y_out, logshift), f_inv(Y_val, logshift))
             print("Fold %d mae = %.6f" % (i, mae_val))
         except MemoryError:
             print("MemoryError with %s, %s." % (reg.__class__.__name__, kwargs))
@@ -62,7 +71,8 @@ def build_ensemble(regressor, kfold):
         else:
             cv_prediction = cv_prediction + inc_pred
 
-    print("Ensemble mae = %.6f" % mae(np.expm1(cv_prediction), np.expm1(Y_val)))
+    print("Ensemble mae = %.6f" % mae(f_inv(cv_prediction, logshift),
+                                      f_inv(Y_val, logshift)))
     return ensemble
 
 
@@ -107,7 +117,7 @@ def predict(ensemble, id_col, X, k=5):
 
     id_col = id_col.rename(columns={"0": "id"})
     df = pd.concat((id_col, prediction), axis=1)
-    df["loss"] = np.expm1(df["loss"])
+    df["loss"] = f_inv(df["loss"], logshift)
     df.to_csv("../submission.csv", index=False)
     return df
 
