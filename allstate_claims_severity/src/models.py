@@ -8,7 +8,7 @@ import traceback
 from xgboost import XGBRegressor
 
 
-logshift = 200
+logshift = 1
 def f(loss, shift=200):
     return np.log(loss + shift)
 
@@ -37,6 +37,30 @@ def split(df_path, k=10):
     Y = f(df.iloc[:,-1], logshift)
 
     return X, Y, KFold(n_splits=k)
+
+
+def read_ord(df_path, k=10, test=False):
+    n_cat = 116
+    n_cont = 14
+    dtypes = dict([("id", "uint32")] +
+                   zip(["cat%d" % (i+1) for i in range(n_cat)], ["uint16"] * n_cat) +
+                   zip(["cont%d" % (i+1) for i in range(n_cont)], ["float32"] * n_cont))
+    if test:
+        dtypes["loss"] = "float32"
+
+    df = pd.read_csv(df_path, dtype=dtypes)
+    print("df info:")
+    df.info()
+
+    if test:
+        X = df.iloc[:, 1:]
+        Y = pd.DataFrame()
+    else:
+        X = df.iloc[:, 1:-1]
+        Y = f(df.iloc[:, -1], logshift)
+
+    ret3 = pd.DataFrame(df.iloc[:, 0]) if test else KFold(n_splits=k)
+    return X, Y, ret3
 
 
 def build_ensemble(regressor, kfold):
@@ -126,15 +150,19 @@ xgbr = {
     "max_depth": 8,
     "reg_alpha": 1,
     "gamma": 1,
-    "n_estimators": 1000,
+    "n_estimators": 3000,
+    "min_child_weight": 30,
+    "subsample": 0.9,
+    "colsample_bytree": 0.7,
     "seed": 2016,
 }
 
 if __name__ == "__main__":
-    k = 5
+    k = 20
     xgb = (XGBRegressor, xgbr)
     print("Building ensemble.")
-    ensemble = build_ensemble(xgb, split("../input/encoded.csv", k=k))
+    ensemble = build_ensemble(xgb, read_ord("../input/ord_encoded.csv", k=k))
     print("Predicting.")
-    prediction = predict(ensemble, *(read_test("../input/encoded_test.csv")), k=k)
+    X, _, id_col = read_ord("../input/ord_encoded_test.csv", test=True)
+    prediction = predict(ensemble, id_col, X, k=k)
     print("Done.")
