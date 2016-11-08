@@ -8,7 +8,7 @@ import traceback
 from xgboost import XGBRegressor
 
 
-logshift = 1
+logshift = 200
 def f(loss, shift=200):
     return np.log(loss + shift)
 
@@ -76,9 +76,12 @@ def build_ensemble(regressor, kfold):
         try:
             reg.fit(X_train, Y_train, eval_metric="mae", verbose=True);
             ensemble.append(reg)
+            Y_train_out = reg.predict(X_train)
+            train_mae_val = mae(f_inv(Y_train_out, logshift), f_inv(Y_train, logshift))
+            print("Fold %d train mae = %.6f" % (i, train_mae_val))
             Y_out = reg.predict(X_val)
             mae_val = mae(f_inv(Y_out, logshift), f_inv(Y_val, logshift))
-            print("Fold %d mae = %.6f" % (i, mae_val))
+            print("Fold %d test mae = %.6f" % (i, mae_val))
         except MemoryError:
             print("MemoryError with %s, %s." % (reg.__class__.__name__, kwargs))
             traceback.print_exc()
@@ -147,9 +150,9 @@ def predict(ensemble, id_col, X, k=5):
 
 
 xgbr = {
-    "max_depth": 8,
+    "max_depth": 7,
     "reg_alpha": 1,
-    "gamma": 1,
+    "gamma": 5,
     "n_estimators": 3000,
     "min_child_weight": 30,
     "subsample": 0.9,
@@ -158,7 +161,7 @@ xgbr = {
 }
 
 if __name__ == "__main__":
-    k = 20
+    k = 5
     xgb = (XGBRegressor, xgbr)
     print("Building ensemble.")
     ensemble = build_ensemble(xgb, read_ord("../input/ord_encoded.csv", k=k))
