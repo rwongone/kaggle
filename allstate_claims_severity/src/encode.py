@@ -45,6 +45,8 @@ def encode(csv_path, n_cat, n_cont):
         del labels
         categories.append(onehot_enc.fit_transform(feature))
 
+    del orig_df
+    del cat_df
     encoded_cats = np.column_stack(categories)
     del cat_test_df
     del categories
@@ -75,6 +77,10 @@ def encode_test(csv_path, n_cat, n_cont):
         del labels
         categories.append(onehot_enc.fit_transform(feature))
 
+    del test_df
+    del orig_df
+    del cat_test_df
+    del cat_df
     encoded_cats = np.column_stack(categories)
     del cat_test_df
     del categories
@@ -83,7 +89,7 @@ def encode_test(csv_path, n_cat, n_cont):
     pd.DataFrame(encoded_df).to_csv("../input/encoded_test.csv", index=False)
 
 
-# encode("../input/train.csv", n_cat=116, n_cont=14)
-# encode_test("../input/test.csv", n_cat=116, n_cont=14)
-ordinal(n_cat=116, n_cont=14)
+encode("../input/train.csv", n_cat=116, n_cont=14)
+encode_test("../input/test.csv", n_cat=116, n_cont=14)
+# ordinal(n_cat=116, n_cont=14)
 print("encode.py finished")

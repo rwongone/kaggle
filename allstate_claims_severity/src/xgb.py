@@ -30,6 +30,7 @@ def test():
             cat_encode(A(), B(), (0, 2), mode="ordinal"))
 
 
+# TODO.
 def csv_to_dmatrix(csv_path, id_ix=None, cat_ix=None, cont_ix=None,
                    target_ix=None, save_to=None):
     df = pd.read_csv(csv_path)

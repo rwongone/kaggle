@@ -150,13 +150,13 @@ def predict(ensemble, id_col, X, k=5):
 
 
 xgbr = {
-    "max_depth": 7,
+    "max_depth": 8,
     "reg_alpha": 1,
-    "gamma": 5,
-    "n_estimators": 3000,
-    "min_child_weight": 30,
-    "subsample": 0.9,
-    "colsample_bytree": 0.7,
+    "gamma": 3,
+    "n_estimators": 1000,
+    "min_child_weight": 3,
+    "subsample": 1,
+    "colsample_bytree": 1,
     "seed": 2016,
 }
 
@@ -164,8 +164,11 @@ if __name__ == "__main__":
     k = 5
     xgb = (XGBRegressor, xgbr)
     print("Building ensemble.")
-    ensemble = build_ensemble(xgb, read_ord("../input/ord_encoded.csv", k=k))
+    train = split("../input/encoded.csv", k=k)
+    # train = read_ord("../input/ord_encoded.csv"
+    ensemble = build_ensemble(xgb, train)
     print("Predicting.")
-    X, _, id_col = read_ord("../input/ord_encoded_test.csv", test=True)
+    id_col, X = read_test("../input/encoded_test.csv")
+    # X, _, id_col = read_ord("../input/ord_encoded_test.csv", test=True)
     prediction = predict(ensemble, id_col, X, k=k)
     print("Done.")
