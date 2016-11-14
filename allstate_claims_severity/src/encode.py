@@ -30,8 +30,6 @@ def encode(csv_path, n_cat, n_cont):
     cont_df = orig_df.iloc[:, n_cat+1:-1]
     target = pd.DataFrame(orig_df.iloc[:, -1])
 
-    del test_df
-
     categories = []
     for i in xrange(n_cat):
         srs = cat_df.iloc[:,i]
@@ -42,15 +40,9 @@ def encode(csv_path, n_cat, n_cont):
         lab_enc.fit(labels)
         feature = lab_enc.transform(srs).reshape(len(srs), 1)
         onehot_enc = OneHotEncoder(sparse=False, n_values=len(labels))
-        del labels
         categories.append(onehot_enc.fit_transform(feature))
 
-    del orig_df
-    del cat_df
     encoded_cats = np.column_stack(categories)
-    del cat_test_df
-    del categories
-
     encoded_df = np.concatenate((encoded_cats, cont_df.values,
                                  target.values), axis=1)
     pd.DataFrame(encoded_df).to_csv("../input/encoded.csv", index=False)
@@ -74,16 +66,9 @@ def encode_test(csv_path, n_cat, n_cont):
         lab_enc.fit(labels)
         feature = lab_enc.transform(srs).reshape(len(srs), 1)
         onehot_enc = OneHotEncoder(sparse=False, n_values=len(labels))
-        del labels
         categories.append(onehot_enc.fit_transform(feature))
 
-    del test_df
-    del orig_df
-    del cat_test_df
-    del cat_df
     encoded_cats = np.column_stack(categories)
-    del cat_test_df
-    del categories
 
     encoded_df = np.concatenate((id_df.values, encoded_cats, cont_test_df.values), axis=1)
     pd.DataFrame(encoded_df).to_csv("../input/encoded_test.csv", index=False)
