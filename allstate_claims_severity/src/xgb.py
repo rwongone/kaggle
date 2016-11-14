@@ -162,12 +162,7 @@ def encode(mode="onehot"):
     del train
     del test
 
-    train_df.to_csv("../input/train_enc.csv", index=False)
-    test_df.to_csv("../input/test_enc.csv", index=False)
-    del test_df
-    train_dmat = df_to_dmatrix(train_df, save_to="../var/train.%s" % mode)
+    df_to_dmatrix(train_df, save_to="../var/train.%s" % mode)
     del train_df
-    test_df = pd.read_csv("../input/test_enc.csv")
-    test_dmat = df_to_dmatrix(test_df, save_to="../var/test.%s" % mode)
+    df_to_dmatrix(test_df, save_to="../var/test.%s" % mode)
     del test_df
-    return train_dmat, test_dmat
