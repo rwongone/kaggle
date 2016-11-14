@@ -1,0 +1,9 @@
+1010 CV 1118 LB:
+    5-fold cross-validation. logshift was 1.
+    xgbr = {
+        "max_depth": 8,
+        "reg_alpha": 1,
+        "gamma": 1,
+        "n_estimators": 1000,
+        "seed": 2016,
+    }
