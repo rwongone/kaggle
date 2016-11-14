@@ -1,11 +1,22 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-import xgboost as xgb
+import xgboost
 
 
 def cols(df):
     return list(df.columns.values)
+
+
+def A():
+    data = {
+        "color": ["R", "G", "B", "R", "G", "G"],
+        "sex": ["M", "F", "F", "F", "M", "M"],
+        "fave_letter": ["a", "b", "c", "d", "d", "a"],
+        "numbers": [1, 2, 3, 4, 1, 2],
+    }
+    return pd.DataFrame(data=data)
+
 
 def test():
     def A():
@@ -30,26 +41,19 @@ def test():
             cat_encode(A(), B(), (0, 2), mode="ordinal"))
 
 
-# TODO.
-def csv_to_dmatrix(csv_path, id_ix=None, cat_ix=None, cont_ix=None,
-                   target_ix=None, save_to=None):
-    df = pd.read_csv(csv_path)
-
-    if id_ix:
-        id_col = pd.DataFrame(df.iloc[:,id_ix])
-
-    if cat_ix:
-        cat_df = df.iloc[:,cat_ix]
-
-    if cont_ix:
-        cont_df = df.iloc[:,cont_ix]
-
-    if target_ix:
-        target_col = pd.DataFrame(df.iloc[:,target_ix])
-
+def df_to_dmatrix(df, save_to=None):
+    """
+    Convert a DataFrame to a DMatrix.
+    """
+    to_replace = ["int64", "uint8", "float64"]
+    replace_with = ["int", "int", "float"]
+    f_types = df.dtypes.replace(to_replace, replace_with)
+    dmat = xgboost.DMatrix(data=df.values, feature_names=cols(df),
+                           feature_types=f_types)
     if save_to:
         dmat.save_binary(save_to)
         print("DMatrix saved to %s" % save_to)
+    return dmat
 
 
 def onehot(train_cat, test_cat):
@@ -81,8 +85,10 @@ def onehot(train_cat, test_cat):
         col_tmp = list(l_encoder.inverse_transform(range(len(labels))))
         columns = columns + ["%s_%s" % (c, i) for i in col_tmp]
 
-    new_train_cat = pd.DataFrame(np.column_stack(train_enc), columns=columns)
-    new_test_cat = pd.DataFrame(np.column_stack(test_enc), columns=columns)
+    new_train_cat = pd.DataFrame(np.column_stack(train_enc), columns=columns,
+                                 dtype=np.uint8)
+    new_test_cat = pd.DataFrame(np.column_stack(test_enc), columns=columns,
+                                dtype=np.uint8)
     return new_train_cat, new_test_cat
 
 
@@ -99,7 +105,8 @@ def ordinal(train_cat, test_cat):
     f = lambda col: np.unique(col, return_inverse=True)[1]
     combined = pd.concat([train_cat, test_cat])
     ord_enc= combined.apply(f, axis=0)
-    new_train_cat, new_test_cat = ord_enc.iloc[:l,:], ord_enc.iloc[l:,:]
+    new_train_cat = ord_enc.iloc[:l,:].astype(np.uint8)
+    new_test_cat = ord_enc.iloc[l:,:].astype(np.uint8)
     return new_train_cat, new_test_cat
 
 
@@ -137,6 +144,10 @@ def cat_encode(train, test, cat_ix, mode="onehot"):
 
 
 def encode(mode="onehot"):
+    modes = ["onehot", "ordinal"]
+    if mode not in modes:
+        return
+
     train_path = "../input/train.csv"
     test_path = "../input/test.csv"
     id_ix = 0
@@ -147,14 +158,16 @@ def encode(mode="onehot"):
     train = pd.read_csv(train_path)
     test = pd.read_csv(test_path)
 
-    train_df, test_df = cat_encode(train, test, cat_ix, "onehot")
-    csv_to_dmatrix(train_df, save_to="../var/train.onehot")
-    csv_to_dmatrix(test_df, save_to="../var/test.onehot")
-    del train_df
-    del test_df
+    train_df, test_df = cat_encode(train, test, cat_ix, mode)
+    del train
+    del test
 
-    train_df, test_df = cat_encode(train, test, cat_ix, "ordinal")
-    csv_to_dmatrix(train_df, save_to="../var/train.ordinal")
-    csv_to_dmatrix(test_df, save_to="../var/test.ordinal")
-    del train_df
+    train_df.to_csv("../input/train_enc.csv", index=False)
+    test_df.to_csv("../input/test_enc.csv", index=False)
     del test_df
+    train_dmat = df_to_dmatrix(train_df, save_to="../var/train.%s" % mode)
+    del train_df
+    test_df = pd.read_csv("../input/test_enc.csv")
+    test_dmat = df_to_dmatrix(test_df, save_to="../var/test.%s" % mode)
+    del test_df
+    return train_dmat, test_dmat
