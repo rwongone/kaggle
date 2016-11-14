@@ -1,3 +1,4 @@
 *.csv
 *-checkpoint.ipynb
 *.pyc
+var/
