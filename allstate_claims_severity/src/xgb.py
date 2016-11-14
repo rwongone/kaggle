@@ -150,6 +150,15 @@ def cat_encode(train, test, cat_ix, mode="onehot"):
     return train_df, test_df
 
 
+def strip_ids(train_df, test_df):
+    pd.DataFrame(test_df.loc[:, "id"],
+                 columns=["id"],
+                 dtype=np.uint32).to_csv("../var/id.csv", index=False)
+    train_df.drop("id", axis=1, inplace=True)
+    test_df.drop("id", axis=1, inplace=True)
+    print("Test set ID column written to ../var/id.csv")
+
+
 def encode(mode="onehot"):
     modes = ["onehot", "ordinal"]
     if mode not in modes:
@@ -166,9 +175,10 @@ def encode(mode="onehot"):
     test = pd.read_csv(test_path)
 
     train_df, test_df = cat_encode(train, test, cat_ix, mode)
-
     del train
     del test
+
+    strip_ids(train_df, test_df)
 
     df_to_dmatrix(train_df, label="loss", save_to="../var/train.%s" % mode)
     del train_df
