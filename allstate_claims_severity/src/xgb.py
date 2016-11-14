@@ -46,17 +46,18 @@ def df_to_dmatrix(df, label=None, save_to=None):
     Convert a DataFrame to a DMatrix.
     """
     if label:
-        label_col = df.loc[:, label]
+        label_col = pd.DataFrame(df.loc[:, label], columns=[label])
+        label_col.to_csv("../var/%s.csv" % label, index=False)
+        print("Label written to ../var/%s.csv" % label)
+        del label_col
         df.drop(label, axis=1, inplace=True)
-    else:
-        label_col = None
 
     to_replace = ["int64", "uint8", "float64"]
     replace_with = ["int", "int", "float"]
     f_types = df.dtypes.replace(to_replace, replace_with)
 
     dmat = xgboost.DMatrix(data=df.values, feature_names=cols(df),
-                           feature_types=f_types, label=label_col)
+                           feature_types=f_types)
     if save_to:
         dmat.save_binary(save_to)
         print("DMatrix saved to %s" % save_to)
