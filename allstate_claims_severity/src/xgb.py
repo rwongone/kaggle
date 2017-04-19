@@ -79,7 +79,8 @@ def onehot(train_cat, test_cat):
     for c in cols(train_cat):
         train = train_cat.loc[:,c]
         test = test_cat.loc[:,c]
-        labels = list(set(train.tolist()) | set(test.tolist()))
+        labels = list(set(train.unique().tolist()) |
+                      set(test.unique().tolist()))
 
         l_encoder = LabelEncoder()
         l_encoder.fit(labels)
@@ -160,6 +161,22 @@ def strip_ids(train_df, test_df):
     print("Test set ID column written to ../var/id.csv")
 
 
+def filter_cat(train_df, test_df):
+    for col in train_df.select_dtypes(["object"]).columns:
+        if (train_df[col].nunique() != test_df[col].nunique()):
+            train_set = set(train_df[col].unique())
+            test_set = set(test_df[col].unique())
+            remove = (train_set - test_set) | (test_set - train_set)
+
+            def _filter(x):
+                if x in remove:
+                    return "other"
+                return x
+
+            train_df[col] = train_df[col].apply(lambda x: _filter(x), 1)
+    return train_df, test_df
+
+
 def encode(mode="onehot"):
     modes = ["onehot", "ordinal"]
     if mode not in modes:
@@ -174,6 +191,8 @@ def encode(mode="onehot"):
 
     train = pd.read_csv(train_path)
     test = pd.read_csv(test_path)
+
+    train_df, test_df = filter_cat(train, test)
 
     train_df, test_df = cat_encode(train, test, cat_ix, mode)
     del train
